@@ -16,7 +16,7 @@ class Board(object):
         self.total_removed_lines = 0
         self.average = 0
         self.round = 0
-        self.INFO_ROUND = 10000
+        self.INFO_ROUND = 100
         self.max_removed = 0
         self.debug = False
 
@@ -42,7 +42,7 @@ class Board(object):
     def init(self):
         self.board = np.zeros((Board.BOARD_HEIGHT, Board.BOARD_WIDTH), np.int)
         self.board_m = np.zeros((Board.BOARD_HEIGHT + 1, Board.BOARD_WIDTH), np.int)
-        #self.total_removed_lines = 0
+        # self.total_removed_lines = 0
         self.cur_removed_lines = 0
         self.started = True
         self.round += 1
@@ -51,16 +51,16 @@ class Board(object):
         self.var = 0
         self.last_var = 0
 
-    def new_shape(self):
+    def new_shape(self, p_shape):
         self.cur_y = Board.BOARD_HEIGHT - 1
-        self.cur_shape = Shape(Shape.SquareShape)
+        self.cur_shape = Shape(p_shape)
         return self.cur_shape
 
     def get_reward(self):
         # print(self.last_bad_pos, self.bad_pos, self.last_var, self.var, self.cur_removed_lines)
         reward = self.last_bad_pos - self.bad_pos
-        # reward += self.last_var - self.var
-        reward += self.cur_removed_lines * 10
+        reward += self.last_var - self.var
+        reward += self.cur_removed_lines * 2
         return reward
 
     def start_training(self):
@@ -71,7 +71,7 @@ class Board(object):
         while True:
             self.init()
             while self.started:
-                new_shape = self.new_shape()
+                new_shape = self.new_shape(Shape.LShape)
                 action = player.select_action(self.get_feature_vector(), new_shape)
                 new_shape.set_sub_shape(action[0])
                 new_shape.set_x(action[1])
@@ -81,14 +81,17 @@ class Board(object):
                     self.print_info()
 
                 if self.started:
-                    player.update(self.get_feature_vector(), self.get_reward())
+                    player.update(self.get_feature_vector(), self.get_reward(), new_shape)
                 else:
-                    player.update(np.ones(self.BOARD_WIDTH * (self.GAME_OVER_HEIGHT + 1)), -2)
+                    player.update(np.zeros(self.BOARD_WIDTH * (self.GAME_OVER_HEIGHT + 1)), -5, new_shape)
 
             if self.round % self.INFO_ROUND == 0:
-                self.print_info()
                 self.average = self.total_removed_lines / float(self.round)
+                self.print_info()
+                print('*' * 20)
                 print("Round: %-10d" % self.round, "Max:", self.max_removed, "Avg:", self.average)
+                print('*' * 20)
+
 
     @staticmethod
     def get_full_board_m():
@@ -138,10 +141,11 @@ class Board(object):
     def remove_full_lines(self):
         # to_remove = np.argwhere(np.sum(self.board, axis=1) == Board.BOARD_WIDTH).ravel()
         to_remove = np.nonzero(np.all(self.board, axis=1))[0]
-        self.cur_removed_lines = len(to_remove)
-        if self.cur_removed_lines == 0:
+
+        if len(to_remove) == 0:
             return
 
+        self.cur_removed_lines += len(to_remove)
 
         after_remove = np.delete(self.board, to_remove, axis=0)
         self.board = np.zeros((Board.BOARD_HEIGHT, Board.BOARD_WIDTH), np.int)
@@ -168,7 +172,7 @@ class Board(object):
         # print("Features Vector:")
         # print(board.get_feature_vector().reshape((self.BOARD_WIDTH, self.GAME_OVER_HEIGHT + 1)))
 
-        print("Information:", board.calculate())
+        print("Information:", self.bad_pos, self.last_bad_pos, self.last_var, self.var)
         print("Total Removed Lines:", board.total_removed_lines)
         print("Current Removed Lines:", board.cur_removed_lines)
         print('#############################')

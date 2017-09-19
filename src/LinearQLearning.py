@@ -1,3 +1,4 @@
+import pprint
 import random
 
 import numpy as np
@@ -17,7 +18,7 @@ class QLearnPlayer(object):
     def __init__(self):
         self.alpha = 0.02
         self.gamma = 0.8
-        self.epsilon = 0.02
+        self.epsilon = 0.001
         self.theta = None
 
         self.cur_status = None
@@ -43,6 +44,9 @@ class QLearnPlayer(object):
     def select_action(self, feature, shape):
         self.cur_status = feature
         self.cur_shape = shape
+        if self.debug >= self.DEBUG_LEVEL1:
+            print()
+            print("Select Action")
         if self.learn and random.random() < self.epsilon:
             actions = shape.get_actions()
             a1 = random.randint(0, len(actions) - 1)
@@ -87,7 +91,7 @@ class QLearnPlayer(object):
         with open(file_name, 'rb') as f:
             self.theta = pickle.load(f)
 
-    def update(self, new_status, reward):
+    def update(self, new_status, reward, p_shape=None):
         if self.debug >= self.DEBUG_LEVEL1:
             print("Update:", self.cur_shape.get_name(), ":",
                   self.cur_action, ":", "reward", reward)
@@ -95,22 +99,32 @@ class QLearnPlayer(object):
         if not self.learn:
             return
 
-        this_q = np.sum(
-            self.theta[self.cur_shape.get_shape()][self.cur_action[0]][self.cur_action[1]] * self.cur_status)
+        this_q = np.sum(self.theta[self.cur_shape.get_shape()][self.cur_action[0]][self.cur_action[1]]
+                        * self.cur_status)
         next_q = 0
 
-        # for p_shape in range(1, Shape.MAX_SHAPE):
-        p_shape = Shape.SquareShape
-        next_action, max_q = self.best_action(new_status, QLearnPlayer.SHAPES[p_shape])
-        next_q += max_q
-        # next_q /= (Shape.MAX_SHAPE - 1)
+        if p_shape is None:
+            for p_shape in range(1, Shape.MAX_SHAPE):
+                next_action, max_q = self.best_action(new_status, QLearnPlayer.SHAPES[p_shape])
+                next_q += max_q
+            next_q /= (Shape.MAX_SHAPE - 1)
+        else:
+            next_action, next_q = self.best_action(new_status, QLearnPlayer.SHAPES[p_shape.get_shape()])
 
         if self.debug >= self.DEBUG_LEVEL2:
             print("Update this: %f next: %f " % (this_q, next_q))
 
         t = self.alpha * (reward + self.gamma * next_q - this_q)
         a = np.array(self.cur_status) * t
+        if self.debug >= self.DEBUG_LEVEL2:
+            print("Before:")
+            pprint.pprint(self.theta[self.cur_shape.get_shape()][self.cur_action[0]][self.cur_action[1]])
+            print("delta:")
+            pprint.pprint(a)
         self.theta[self.cur_shape.get_shape()][self.cur_action[0]][self.cur_action[1]] += a
+        if self.debug >= self.DEBUG_LEVEL2:
+            print("After:")
+            pprint.pprint(self.theta[self.cur_shape.get_shape()][self.cur_action[0]][self.cur_action[1]])
 
 
 if __name__ == '__main__':
