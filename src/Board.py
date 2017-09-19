@@ -8,21 +8,24 @@ from LinearQLearning import QLearnPlayer
 
 class Board(object):
     BOARD_WIDTH = Shape.MAX_WIDTH
-    BOARD_HEIGHT = 20
-    GAME_OVER_HEIGHT = 10
+    BOARD_HEIGHT = 10
+    GAME_OVER_HEIGHT = 4
 
     def __init__(self):
         self.with_gui = False
         self.total_removed_lines = 0
         self.average = 0
         self.round = 0
-        self.INFO_ROUND = 1000
+        self.INFO_ROUND = 10000
         self.max_removed = 0
         self.debug = False
 
         self.cur_shape = None
         self.cur_y = None
         self.bad_pos = None
+        self.last_bad_pos = None
+        self.var = None
+        self.last_var = None
         self.BOARD_M_FULL = self.get_full_board_m()
 
         self.board = None
@@ -32,8 +35,6 @@ class Board(object):
         self.started = None
         self.init()
 
-
-
     def set_mode(self, gui, debug):
         self.with_gui = gui
         self.debug = debug
@@ -41,23 +42,32 @@ class Board(object):
     def init(self):
         self.board = np.zeros((Board.BOARD_HEIGHT, Board.BOARD_WIDTH), np.int)
         self.board_m = np.zeros((Board.BOARD_HEIGHT + 1, Board.BOARD_WIDTH), np.int)
-        self.total_removed_lines = 0
+        #self.total_removed_lines = 0
         self.cur_removed_lines = 0
         self.started = True
         self.round += 1
+        self.bad_pos = 0
+        self.last_bad_pos = 0
+        self.var = 0
+        self.last_var = 0
 
     def new_shape(self):
         self.cur_y = Board.BOARD_HEIGHT - 1
-        self.cur_shape = Shape()
+        self.cur_shape = Shape(Shape.SquareShape)
         return self.cur_shape
 
     def get_reward(self):
-        return random.random()
+        # print(self.last_bad_pos, self.bad_pos, self.last_var, self.var, self.cur_removed_lines)
+        reward = self.last_bad_pos - self.bad_pos
+        # reward += self.last_var - self.var
+        reward += self.cur_removed_lines * 10
+        return reward
 
     def start_training(self):
         player = QLearnPlayer()
-        player.set_features(Board.BOARD_WIDTH, [Shape.MAX_SHAPE, max(Shape.SUB), Board.BOARD_WIDTH])
-
+        player.set_features(Board.BOARD_WIDTH * (Board.GAME_OVER_HEIGHT + 1),
+                            [Shape.MAX_SHAPE, max(Shape.SUB), Board.BOARD_WIDTH])
+        player.set_debug(player.DEBUG_LEVEL0, True)
         while True:
             self.init()
             while self.started:
@@ -70,11 +80,15 @@ class Board(object):
                 if self.debug:
                     self.print_info()
 
-                player.update(self.get_feature_vector(), self.get_reward())
+                if self.started:
+                    player.update(self.get_feature_vector(), self.get_reward())
+                else:
+                    player.update(np.ones(self.BOARD_WIDTH * (self.GAME_OVER_HEIGHT + 1)), -2)
 
             if self.round % self.INFO_ROUND == 0:
+                self.print_info()
                 self.average = self.total_removed_lines / float(self.round)
-                print("Round: %-10d"%self.round, "Max:", self.max_removed, "Avg:", self.average)
+                print("Round: %-10d" % self.round, "Max:", self.max_removed, "Avg:", self.average)
 
     @staticmethod
     def get_full_board_m():
@@ -89,8 +103,14 @@ class Board(object):
         self.board_m[y + 1, x] = y + 1
 
     def get_feature_vector(self):
-        res = np.argmax(self.board_m, axis=0)
-        return res - min(res) + 1
+        res = np.zeros(self.BOARD_WIDTH * (self.GAME_OVER_HEIGHT + 1))
+        top = np.argmax(self.board_m, axis=0)
+        top -= min(top)
+
+        for i in range(top.shape[0]):
+            res[i * (self.GAME_OVER_HEIGHT + 1) + top[i]] = 1
+
+        return res
 
     def add_shape(self, n_shape):
         pos = n_shape.get_pos()
@@ -104,11 +124,16 @@ class Board(object):
         for y, x in pos:
             self.set_pos(x, self.cur_y - y - min_distance, n_shape.get_shape())
 
+        board.remove_full_lines()
+
         if np.max(self.board_m) > Board.GAME_OVER_HEIGHT:
             self.started = False
+            self.total_removed_lines += self.cur_removed_lines
             if self.cur_removed_lines > self.max_removed:
                 self.max_removed = self.cur_removed_lines
-            # print("#########GAME OVER#########")
+                # print("#########GAME OVER#########")
+        else:
+            self.calculate()
 
     def remove_full_lines(self):
         # to_remove = np.argwhere(np.sum(self.board, axis=1) == Board.BOARD_WIDTH).ravel()
@@ -116,7 +141,7 @@ class Board(object):
         self.cur_removed_lines = len(to_remove)
         if self.cur_removed_lines == 0:
             return
-        self.total_removed_lines += self.cur_removed_lines
+
 
         after_remove = np.delete(self.board, to_remove, axis=0)
         self.board = np.zeros((Board.BOARD_HEIGHT, Board.BOARD_WIDTH), np.int)
@@ -125,18 +150,25 @@ class Board(object):
         self.board_m = self.BOARD_M_FULL
         self.board_m[1:] *= (self.board > 0)
 
-    def get_bad_pos(self):
-        self.bad_pos = np.sum(np.argmax(self.board_m, axis=0)) - np.sum(self.board > 0)
-        return self.bad_pos
+    def calculate(self):
+        top = np.argmax(self.board_m, axis=0)
+        self.last_bad_pos = self.bad_pos
+        self.bad_pos = np.sum(top) - np.sum(self.board > 0)
+
+        self.last_var = self.var
+        self.var = np.sum(np.abs(top[1:] - top[0:-1]))
+
+        return self.bad_pos, self.var
 
     def print_info(self):
         print()
         print('#############################')
         print("Board:")
         pprint.pprint(self.board[::-1])
-        print("Features Vector:", board.get_feature_vector())
+        # print("Features Vector:")
+        # print(board.get_feature_vector().reshape((self.BOARD_WIDTH, self.GAME_OVER_HEIGHT + 1)))
 
-        print("Bad Positions:", board.get_bad_pos())
+        print("Information:", board.calculate())
         print("Total Removed Lines:", board.total_removed_lines)
         print("Current Removed Lines:", board.cur_removed_lines)
         print('#############################')
@@ -147,26 +179,26 @@ if __name__ == '__main__':
     board = Board()
     board.start_training()
 
-    # board.print_info()
-    #
-    # board.set_pos(0, 2, 2)
-    # board.set_pos(0, 2, 3)
-    # board.set_pos(1, 4, 5)
-    # board.set_pos(2, 4, 6)
-    # board.set_pos(3, 5, 3)
-    # board.set_pos(4, 3, 1)
-    # board.set_pos(5, 2, 2)
-    # board.set_pos(6, 3, 2)
-    # board.set_pos(7, 1, 4)
-    # board.set_pos(8, 1, 5)
-    # board.set_pos(9, 1, 1)
-    # for i in range(10):
-    #     board.set_pos(i, 0, 1)
-    #     board.set_pos(i, 4, 4)
-    #
-    # board.print_info()
-    # board.remove_full_lines()
-    # board.print_info()
+    board.print_info()
+
+    board.set_pos(0, 2, 2)
+    board.set_pos(0, 2, 3)
+    board.set_pos(1, 4, 5)
+    board.set_pos(2, 4, 6)
+    board.set_pos(3, 5, 3)
+    board.set_pos(4, 3, 1)
+    board.set_pos(5, 2, 2)
+    board.set_pos(6, 3, 2)
+    board.set_pos(7, 1, 4)
+    board.set_pos(8, 1, 5)
+    board.set_pos(9, 1, 1)
+    for i in range(10):
+        board.set_pos(i, 0, 1)
+        board.set_pos(i, 4, 4)
+
+    board.print_info()
+    board.remove_full_lines()
+    board.print_info()
     # board.started = True
     # for i in range(10):
     #     shape = board.new_shape()
