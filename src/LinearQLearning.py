@@ -79,7 +79,7 @@ class QLearnPlayer(object):
         return result, m
 
     def save_theta(self):
-        file_name = "theta" + time.strftime("%Y_%b_%d_%H_%M_%S")
+        file_name = "theta_%f_%f_%f__" % (self.gamma, self.alpha, self.epsilon) + time.strftime("%Y_%b_%d_%H_%M_%S")
         with open("theta.save", 'wb') as f:
             pickle.dump(self.theta, f)
         with open(file_name, 'wb') as f:
@@ -132,7 +132,8 @@ if __name__ == '__main__':
     player.set_features(10, [8, 4, 10])
     player.set_debug(QLearnPlayer.DEBUG_LEVEL2, True)
     s1 = Shape(3)
-    for i in range(100000):
+    for i in range(100):
         player.select_action([1 for i in range(10)], s1)
         player.update([2 for i in range(10)], 1)
 
+    player.save_theta()
