@@ -105,10 +105,14 @@ class Shape(object):
     def rotate_right(self, step=1):
         self.sub_shape += step
         self.sub_shape %= Shape.SUB[self.piece_shape]
+        if self.x > Shape.MAX_WIDTH - Shape.SHAPE_WIDTH[self.piece_shape][self.sub_shape]:
+            self.x = Shape.MAX_WIDTH - Shape.SHAPE_WIDTH[self.piece_shape][self.sub_shape]
 
     def rotate_left(self, step=1):
         self.sub_shape -= step
         self.sub_shape %= Shape.SUB[self.piece_shape]
+        if self.x > Shape.MAX_WIDTH - Shape.SHAPE_WIDTH[self.piece_shape][self.sub_shape]:
+            self.x = Shape.MAX_WIDTH - Shape.SHAPE_WIDTH[self.piece_shape][self.sub_shape]
 
     def get_actions(self):
         return Shape.ACTIONS[self.piece_shape]

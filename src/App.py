@@ -116,8 +116,9 @@ class App(QMainWindow):
     def keyPressEvent(self, event):
         key = event.key()
         if not self.running:
-            self.running = True
+
             if key == Qt.Key_Space:
+                self.running = True
                 self.start_play()
                 return
 
@@ -127,7 +128,7 @@ class App(QMainWindow):
 
             if key == Qt.Key_A:
                 self.start_ai()
-                return
+            return
         else:
             if key == Qt.Key_F:
                 self.speed /= 2
@@ -165,9 +166,10 @@ class App(QMainWindow):
                 self.update()
 
     def game_over(self):
+        self.running = False
         msg2 = "MAX %d" % self.board.cur_removed_lines
         self.board_msg = ["GAME OVER ", msg2]
-        self.running = False
+
         self.timer.stop()
 
     def timerEvent(self, event):
