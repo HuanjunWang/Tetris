@@ -9,7 +9,7 @@ from Shape import Shape
 class Board(object):
     BOARD_WIDTH = Shape.MAX_WIDTH
     BOARD_HEIGHT = 20
-    GAME_OVER_HEIGHT = 16
+    GAME_OVER_HEIGHT = 6
 
     def __init__(self):
         self.with_gui = False

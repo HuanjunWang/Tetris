@@ -1,6 +1,7 @@
 import sys
 from PyQt5.QtGui import QPainter, QColor
 from PyQt5.QtWidgets import QMainWindow, QDesktopWidget, QApplication
+from PyQt5.QtCore import Qt
 from Board import Board
 from Shape import Shape
 
@@ -19,11 +20,11 @@ class App(QMainWindow):
         self.setWindowTitle('Tetris')
         self.show()
         self.board = Board()
-        self.board.next_step()
-        self.board.next_step()
-        self.board.next_step()
-        self.board.next_step()
-        self.show_message('Hello')
+        self.board.init()
+        # self.board.next_step()
+        self.show_message('T/A/Space')
+
+        self.running = False
 
     def show_message(self, msg):
         self.status_bar.showMessage(msg)
@@ -49,6 +50,12 @@ class App(QMainWindow):
                     self.draw_square(painter, j * self.square_width(),
                                      board_bottom - (i + 1) * self.square_height(), shape)
 
+        if self.board.cur_shape and self.board.cur_shape.get_shape() != Shape.NoShape:
+            for y, x in self.board.cur_shape.get_pos():
+                j = self.board.cur_y - y
+                self.draw_square(painter,  x * self.square_width(),
+                                 board_bottom - (j + 1) * self.square_height(), self.board.cur_shape.get_shape())
+
     def draw_square(self, painter, x, y, shape):
         color_table = [0x000000, 0xCC6666, 0x66CC66, 0x6666CC,
                        0xCCCC66, 0xCC66CC, 0x66CCCC, 0xDAAA00]
@@ -72,6 +79,31 @@ class App(QMainWindow):
 
     def square_height(self):
         return self.square_width()
+
+    def start_play(self):
+        pass
+
+    def start_training(self):
+        pass
+
+    def start_ai(self):
+        pass
+
+    def keyPressEvent(self, event):
+        key = event.key()
+        if not self.running:
+            self.running = True
+            if key == Qt.Key_Space:
+                self.start_play()
+                return
+
+            if key == Qt.Key_T:
+                self.start_training()
+                return
+
+            if key == Qt.Key_A:
+                self.start_ai()
+                return
 
 
 if __name__ == '__main__':
