@@ -16,7 +16,7 @@ class Board(object):
         self.total_removed_lines = 0
         self.average = 0
         self.round = 0
-        self.INFO_ROUND = 100
+        self.INFO_ROUND = 1000
         self.max_removed = 0
         self.debug = False
 
@@ -52,9 +52,54 @@ class Board(object):
         self.last_bad_pos = 0
         self.var = 0
         self.last_var = 0
+        self.cur_shape = None
 
-    def next_step(self):
-        self.add_shape(self.new_shape())
+    def next_step(self, fast):
+        if fast:
+            return self.add_shape(self.new_shape())
+        else:
+            if self.cur_shape is None:
+                self.new_shape()
+                return True
+            else:
+                return self.move_down(1)
+
+    def get_min_distance(self):
+        pos = self.cur_shape.get_pos()
+        cur_h = np.argmax(self.board_m, axis=0)
+        min_distance = Board.BOARD_HEIGHT
+        for y, x in pos:
+            if (self.cur_y - y - cur_h[x]) < min_distance:
+                min_distance = self.cur_y - y - cur_h[x]
+        return min_distance
+
+    def move_down(self, lines):
+        self.cur_y -= lines
+        res = True
+        if self.get_min_distance() <= 0 or lines == 0:
+            res = self.add_shape(self.cur_shape)
+            self.cur_shape = None
+        return res
+
+    def move_left(self):
+        if not self.cur_shape:
+            return
+        self.cur_shape.move_left()
+
+    def move_right(self):
+        if not self.cur_shape:
+            return
+        self.cur_shape.move_right()
+
+    def rotate_left(self):
+        if not self.cur_shape:
+            return
+        self.cur_shape.rotate_left()
+
+    def rotate_right(self):
+        if not self.cur_shape:
+            return
+        self.cur_shape.rotate_right()
 
     def new_shape(self, p_shape=None):
         self.cur_y = Board.BOARD_HEIGHT - 1
@@ -142,8 +187,10 @@ class Board(object):
             if self.cur_removed_lines > self.max_removed:
                 self.max_removed = self.cur_removed_lines
                 # print("#########GAME OVER#########")
+            return False
         else:
             self.calculate()
+            return True
 
     def remove_full_lines(self):
         # to_remove = np.argwhere(np.sum(self.board, axis=1) == Board.BOARD_WIDTH).ravel()

@@ -73,7 +73,7 @@ class Shape(object):
 
     def set_x(self, x):
         if x < 0 or x > Shape.MAX_WIDTH - Shape.SHAPE_WIDTH[self.piece_shape][self.sub_shape]:
-            raise (Exception("Set X Error %d" % x))
+            # raise (Exception("Set X Error %d" % x))
             return
         self.x = x
 
