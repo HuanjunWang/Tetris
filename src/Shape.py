@@ -21,7 +21,6 @@ class Shape(object):
     MAX_POINT = 4
     MAX_WIDTH = 10
 
-    print("Init Shape Table!!!!!")
     SHAPE_TABLE = np.zeros((MAX_SHAPE, MAX_SUB_SHAPE, MAX_POINT, 2), np.int)
     SHAPE_TABLE[ZShape, 0] = ((0, 0), (0, 1), (1, 1), (1, 2))
     SHAPE_TABLE[ZShape, 1] = ((0, 1), (1, 1), (1, 0), (2, 0))
@@ -65,7 +64,9 @@ class Shape(object):
 
     def __init__(self, p_shape=None):
         if p_shape is None:
-            self.piece_shape = random.choice([self.SquareShape])
+            self.piece_shape = random.choice([self.SquareShape, self.LShape, self.MirroredLShape,
+                                              self.TShape, self.LineShape, self.ZShape, self.SShape])
+            self.piece_shape = self.SquareShape
         else:
             self.piece_shape = p_shape
         self.sub_shape = 0

@@ -31,6 +31,7 @@ class Board(object):
         self.board = None
         self.board_m = None
 
+        self.num_of_full_lines = None
         self.cur_removed_lines = None
         self.one_removed_lines = None
         self.started = None
@@ -53,14 +54,25 @@ class Board(object):
         self.var = 0
         self.last_var = 0
         self.cur_shape = None
+        self.num_of_full_lines = 0
 
-    def next_step(self, fast):
-        if self.cur_shape is None:
+    def next_step(self, fast=False):
+        '''
+            If cur_shape exit, move down one step
+            If fast set, move to bottom
+            return false when game_over, remove true otherwise
+        '''
+        if self.num_of_full_lines:
+            self.remove_full_lines()
+            return True
+
+        if not self.cur_shape:
             self.new_shape()
+            # raise Exception("cur_shape is None")
             return True
 
         if fast:
-            return self.add_shape(self.new_shape())
+            return self.add_shape_without_remove(self.cur_shape)
         else:
             return self.move_down(1)
 
@@ -101,9 +113,9 @@ class Board(object):
             return
         self.cur_shape.rotate_right()
 
-    def new_shape(self, p_shape=None):
+    def new_shape(self):
         self.cur_y = Board.BOARD_HEIGHT - 1
-        self.cur_shape = Shape(p_shape)
+        self.cur_shape = Shape()
         return self.cur_shape
 
     def get_reward(self):
@@ -194,6 +206,38 @@ class Board(object):
         else:
             self.calculate()
             return True
+
+    def add_shape_without_remove(self, n_shape=None):
+        if n_shape is None:
+            n_shape = self.cur_shape
+        pos = n_shape.get_pos()
+        cur_h = np.argmax(self.board_m, axis=0)
+
+        min_distance = Board.BOARD_HEIGHT
+        for y, x in pos:
+            if (self.cur_y - y - cur_h[x]) < min_distance:
+                min_distance = self.cur_y - y - cur_h[x]
+
+        for y, x in pos:
+            self.set_pos(x, self.cur_y - y - min_distance, n_shape.get_shape())
+
+        #self.remove_full_lines()
+        to_remove = np.nonzero(np.all(self.board, axis=1))[0]
+        self.num_of_full_lines = len(to_remove)
+
+        self.cur_shape = None
+
+        if np.max(self.board_m) > Board.GAME_OVER_HEIGHT:
+            self.started = False
+            self.total_removed_lines += self.cur_removed_lines
+            if self.cur_removed_lines > self.max_removed:
+                self.max_removed = self.cur_removed_lines
+                # print("#########GAME OVER#########")
+            return False
+        else:
+            self.calculate()
+            return True
+
 
     def remove_full_lines(self):
         # to_remove = np.argwhere(np.sum(self.board, axis=1) == Board.BOARD_WIDTH).ravel()

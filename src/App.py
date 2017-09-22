@@ -1,25 +1,40 @@
 import sys
 import threading
-
 import time
+
 from PyQt5.QtGui import QPainter, QColor, QFont
 from PyQt5.QtWidgets import QMainWindow, QDesktopWidget, QApplication
 from PyQt5.QtCore import Qt, QBasicTimer, pyqtSignal
+from qtpy import QtWidgets
+
 from Board import Board
 from Shape import Shape
 from LinearQLearning import QLearnPlayer
 
 
+def catch_exceptions(t, val, tb):
+    QtWidgets.QMessageBox.critical(None,
+                                   "An exception was raised",
+                                   "Exception type: {}".format(t))
+    old_hook(t, val, tb)
+
+
+old_hook = sys.excepthook
+sys.excepthook = catch_exceptions
+
+
 class App(QMainWindow):
-    NONE = 4
-    PLAY = 1
-    TRAINING = 2
-    AI_PLAY = 3
+    RUNNING_MODE_NONE = 4
+    RUNNING_MODE_PLAY = 1
+    RUNNING_MODE_TRAINING = 2
+    RUNNING_MODE_AI_PLAY = 3
+
     DEFAULT_SPEED = 300
 
     FONT_BIG = 40
     FONT_M = 25
     FONT_SMALL = 16
+
     msg_2_bar = pyqtSignal(str)
 
     def __init__(self):
@@ -27,35 +42,35 @@ class App(QMainWindow):
 
         self.status_bar = self.statusBar()
         self.msg_2_bar[str].connect(self.status_bar.showMessage)
-        self.status_bar_height = 20
+        self.board_msg = None
 
         self.WIDTH = 360
-        self.HEIGHT = 760
+        self.HEIGHT = 740
+        self.STATUS_BAR_HEIGHT = 20
+        self.GAME_OVER_LINE_HEIGHT = self.HEIGHT - self.STATUS_BAR_HEIGHT \
+                                     - (self.square_width() * Board.GAME_OVER_HEIGHT)
+
         self.resize(self.WIDTH, self.HEIGHT)
         self.center()
         self.setWindowTitle('Tetris')
         self.show()
 
-        self.board = Board()
-        self.board.init()
-
         self.timer = QBasicTimer()
         self.speed = self.DEFAULT_SPEED
 
+        self.board = Board()
         self.running = False
-        self.mode = self.NONE
+        self.running_mode = self.RUNNING_MODE_NONE
+        self.show_board_msg([(self.FONT_M, 1, 'Press Any Key'), (self.FONT_M, 1, 'To Start')])
+        self.show_status_bar_msg('Press T to Training, Press A to show AI')
 
-        self.board_msg = None
-        self.status_bar_msg('Press T to Training, Press A to show AI')
-        self.show_msg([(self.FONT_SMALL, 2, 'Press Any Key To Start')])
-
-    def show_msg(self, msg):
+    def show_board_msg(self, msg):
         self.board_msg = msg
 
-    def clear_msg(self):
+    def clear_board_msg(self):
         self.board_msg = None
 
-    def status_bar_msg(self, msg):
+    def show_status_bar_msg(self, msg):
         self.msg_2_bar.emit(str(msg))
 
     def center(self):
@@ -67,11 +82,11 @@ class App(QMainWindow):
     def paintEvent(self, event):
         painter = QPainter(self)
 
-        game_over_line = self.height() - (self.square_width() * Board.GAME_OVER_HEIGHT) - self.status_bar_height
         painter.setPen(QColor(0xff0000))
-        painter.drawLine(0, game_over_line, self.width(), game_over_line)
+        painter.drawLine(0, self.GAME_OVER_LINE_HEIGHT, self.WIDTH, self.GAME_OVER_LINE_HEIGHT)
+        painter.drawLine(0, self.GAME_OVER_LINE_HEIGHT + 2, self.WIDTH, self.GAME_OVER_LINE_HEIGHT + 2)
 
-        board_bottom = self.height() - self.status_bar_height
+        board_bottom = self.height() - self.STATUS_BAR_HEIGHT
         for i in range(Board.BOARD_HEIGHT):
             for j in range(Board.BOARD_WIDTH):
                 shape = self.board.board[i, j]
@@ -114,22 +129,31 @@ class App(QMainWindow):
                          y + self.square_height() - 1, x + self.square_width() - 1, y + 1)
 
     def square_width(self):
-        return self.width() / Board.BOARD_WIDTH
+        return self.WIDTH / Board.BOARD_WIDTH
 
     def square_height(self):
         return self.square_width()
 
     def start_play(self):
-        self.mode = self.PLAY
-        self.clear_msg()
+        self.running_mode = self.RUNNING_MODE_PLAY
+        self.clear_board_msg()
 
         self.board.init()
-        self.board.new_shape()
+        self.board.next_step()
         self.update()
         self.timer.start(self.speed, self)
 
+    def timerEvent(self, event):
+        if event.timerId() == self.timer.timerId():
+            self.next_step()
+
     def start_training(self):
         pass
+
+    def start_ai(self):
+        self.running_mode = self.RUNNING_MODE_AI_PLAY
+        self.clear_board_msg()
+        threading.Thread(target=self.ai_thread).start()
 
     def ai_thread(self):
         self.board.init()
@@ -146,18 +170,18 @@ class App(QMainWindow):
             self.board.cur_shape.set_x(action[1])
             self.update()
 
-            if not self.board.add_shape(self.board.cur_shape):
+            if not self.board.add_shape_without_remove(self.board.cur_shape):
                 self.game_over()
                 time.sleep(1)
                 self.update()
                 break
 
-            self.status_bar_msg("Score:%d" % self.board.cur_removed_lines)
+            if self.board.num_of_full_lines:
+                time.sleep(float(self.speed) / 1000)
+                self.board.remove_full_lines()
 
-    def start_ai(self):
-        self.mode = self.AI_PLAY
-        self.clear_msg()
-        threading.Thread(target=self.ai_thread).start()
+
+            self.show_status_bar_msg("Score:%d" % self.board.cur_removed_lines)
 
     def keyPressEvent(self, event):
         key = event.key()
@@ -175,11 +199,11 @@ class App(QMainWindow):
             self.start_play()
 
         else:
-            if self.mode == self.AI_PLAY:
+            if self.running_mode == self.RUNNING_MODE_AI_PLAY:
                 self.handle_ai_play_key(key)
-            elif self.mode == self.PLAY:
+            elif self.running_mode == self.RUNNING_MODE_PLAY:
                 self.handle_play_key(key)
-            elif self.mode == self.TRAINING:
+            elif self.running_mode == self.RUNNING_MODE_TRAINING:
                 self.handle_training_key()
 
     def handle_ai_play_key(self, key):
@@ -226,29 +250,29 @@ class App(QMainWindow):
             self.next_step(True)
 
     def next_step(self, fast=False):
-        if not self.board.next_step(fast):
-            self.game_over()
+        if self.board.next_step(fast):
+            self.show_status_bar_msg("Score:%d" % self.board.cur_removed_lines)
+            if fast:
+                self.board.next_step(fast=False)
         else:
-            self.status_bar_msg("Score:%d" % self.board.cur_removed_lines)
+            self.game_over()
         self.update()
 
     def game_over(self):
         self.running = False
-        self.mode = self.NONE
+        self.running_mode = self.RUNNING_MODE_NONE
 
-        self.show_msg([[self.FONT_BIG, 1, 'GAME OVER'],
-                       [self.FONT_M, 0, "Score: %d" % self.board.cur_removed_lines]])
+        self.show_board_msg([[self.FONT_BIG, 1, 'GAME OVER'],
+                             [self.FONT_M, 0, "Score: %d" % self.board.cur_removed_lines]])
 
-        self.status_bar_msg("Game Over")
+        self.show_status_bar_msg("Game Over")
+
         if self.timer.isActive():
             self.timer.stop()
-
-    def timerEvent(self, event):
-        if event.timerId() == self.timer.timerId():
-            self.next_step()
 
 
 if __name__ == '__main__':
     qApp = QApplication([])
     app = App()
+    app.show()
     sys.exit(qApp.exec_())
