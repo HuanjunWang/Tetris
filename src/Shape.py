@@ -65,7 +65,7 @@ class Shape(object):
 
     def __init__(self, p_shape=None):
         if p_shape is None:
-            self.piece_shape = random.randint(1, self.MAX_SHAPE-1)
+            self.piece_shape = random.choice([self.SquareShape])
         else:
             self.piece_shape = p_shape
         self.sub_shape = 0

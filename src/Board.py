@@ -9,14 +9,14 @@ from Shape import Shape
 class Board(object):
     BOARD_WIDTH = Shape.MAX_WIDTH
     BOARD_HEIGHT = 20
-    GAME_OVER_HEIGHT = 6
+    GAME_OVER_HEIGHT = 16
 
     def __init__(self):
         self.with_gui = False
         self.total_removed_lines = 0
         self.average = 0
         self.round = 0
-        self.INFO_ROUND = 1000
+        self.INFO_ROUND = 100
         self.max_removed = 0
         self.debug = False
 
@@ -55,14 +55,14 @@ class Board(object):
         self.cur_shape = None
 
     def next_step(self, fast):
+        if self.cur_shape is None:
+            self.new_shape()
+            return True
+
         if fast:
             return self.add_shape(self.new_shape())
         else:
-            if self.cur_shape is None:
-                self.new_shape()
-                return True
-            else:
-                return self.move_down(1)
+            return self.move_down(1)
 
     def get_min_distance(self):
         pos = self.cur_shape.get_pos()
@@ -110,7 +110,7 @@ class Board(object):
         # print(self.last_bad_pos, self.bad_pos, self.last_var, self.var, self.cur_removed_lines)
         reward = self.last_bad_pos - self.bad_pos
         reward += self.last_var - self.var
-        reward += self.one_removed_lines ** 2 * 4
+        reward += self.one_removed_lines * 4
         return reward
 
     def start_training(self):
@@ -167,7 +167,9 @@ class Board(object):
 
         return res
 
-    def add_shape(self, n_shape):
+    def add_shape(self, n_shape=None):
+        if n_shape is None:
+            n_shape = self.cur_shape
         pos = n_shape.get_pos()
         cur_h = np.argmax(self.board_m, axis=0)
 
@@ -180,6 +182,7 @@ class Board(object):
             self.set_pos(x, self.cur_y - y - min_distance, n_shape.get_shape())
 
         self.remove_full_lines()
+        self.cur_shape = None
 
         if np.max(self.board_m) > Board.GAME_OVER_HEIGHT:
             self.started = False
