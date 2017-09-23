@@ -28,6 +28,7 @@ class App(QMainWindow):
     RUNNING_MODE_PLAY = 1
     RUNNING_MODE_TRAINING = 2
     RUNNING_MODE_AI_PLAY = 3
+    RUNNING_MODE_REPLAY = 4
 
     DEFAULT_SPEED = 300
 
@@ -153,16 +154,61 @@ class App(QMainWindow):
     def start_ai(self):
         self.running_mode = self.RUNNING_MODE_AI_PLAY
         self.clear_board_msg()
+        self.replay = []
         threading.Thread(target=self.ai_thread).start()
+
+    def start_replay(self):
+        self.running_mode = self.RUNNING_MODE_REPLAY
+        self.clear_board_msg()
+
+        self.board.init()
+        self.update()
+        player = QLearnPlayer()
+        player.load_theta('theta.save')
+        player.set_debug(debug=player.DEBUG_LEVEL3, learn=False)
+        self.player = player
+
+    def replay_next(self):
+        # threading.Thread(target=self.replay_thread()).start()
+        threading.Thread(target=self.replay_thread).start()
+        pass
+
+    def replay_thread(self):
+        # self.board.new_shape(self.replay.pop(0).piece_shape)
+        self.board.new_shape()
+        self.update()
+        time.sleep(0.4)
+        action = self.player.select_action(self.board.get_feature_vector(), self.board.cur_shape)
+        self.board.cur_shape.set_sub_shape(action[0])
+        self.board.cur_shape.set_x(action[1])
+        self.update()
+
+
+        if not self.board.add_shape_without_remove():
+            self.game_over()
+            time.sleep(1)
+            self.update()
+
+        if self.board.num_of_full_lines:
+            time.sleep(1)
+            self.board.remove_full_lines()
+            self.update()
+
+        print(self.board.get_reward())
+
+        self.show_status_bar_msg("Score:%d" % self.board.cur_removed_lines)
+
+    def replay_pre(self):
+        pass
 
     def ai_thread(self):
         self.board.init()
         player = QLearnPlayer()
-        player.load_theta('../../theta/theta_0.800000_0.020000_0.001000__2017_Sep_21_09_00_20')
+        player.load_theta('theta.save')
         player.set_debug(debug=player.DEBUG_LEVEL0, learn=False)
 
         while self.running:
-            self.board.new_shape()
+            self.replay.append(self.board.new_shape())
             self.update()
             time.sleep(float(self.speed) / 1000)
             action = player.select_action(self.board.get_feature_vector(), self.board.cur_shape)
@@ -170,7 +216,7 @@ class App(QMainWindow):
             self.board.cur_shape.set_x(action[1])
             self.update()
 
-            if not self.board.add_shape_without_remove(self.board.cur_shape):
+            if not self.board.add_shape_without_remove():
                 self.game_over()
                 time.sleep(1)
                 self.update()
@@ -179,7 +225,6 @@ class App(QMainWindow):
             if self.board.num_of_full_lines:
                 time.sleep(float(self.speed) / 1000)
                 self.board.remove_full_lines()
-
 
             self.show_status_bar_msg("Score:%d" % self.board.cur_removed_lines)
 
@@ -195,7 +240,11 @@ class App(QMainWindow):
             if key == Qt.Key_A:
                 self.start_ai()
                 return
-            # Any other keys
+
+            if key == Qt.Key_R:
+                self.start_replay()
+                return
+
             self.start_play()
 
         else:
@@ -205,6 +254,8 @@ class App(QMainWindow):
                 self.handle_play_key(key)
             elif self.running_mode == self.RUNNING_MODE_TRAINING:
                 self.handle_training_key()
+            elif self.running_mode == self.RUNNING_MODE_REPLAY:
+                self.handle_replay_key(key)
 
     def handle_ai_play_key(self, key):
         if key == Qt.Key_S:
@@ -215,6 +266,12 @@ class App(QMainWindow):
             self.speed *= 2
         elif key == Qt.Key_Down:
             self.speed /= 2
+
+    def handle_replay_key(self, key):
+        if key == Qt.Key_N or key == Qt.Key_Right:
+            self.replay_next()
+        elif key == Qt.Key_P or key == Qt.Key_Left:
+            self.replay_pre()
 
     def handle_training_key(self, key):
         pass

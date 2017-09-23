@@ -16,9 +16,9 @@ class QLearnPlayer(object):
     DEBUG_LEVEL3 = 3
 
     def __init__(self):
-        self.alpha = 0.02
+        self.alpha = 0.002
         self.gamma = 0.8
-        self.epsilon = 0.001
+        self.epsilon = 0.0002
         self.theta = None
 
         self.cur_status = None
@@ -78,8 +78,9 @@ class QLearnPlayer(object):
 
         return result, m
 
-    def save_theta(self):
-        file_name = "theta_%f_%f_%f__" % (self.gamma, self.alpha, self.epsilon) + time.strftime("%Y_%b_%d_%H_%M_%S")
+    def save_theta(self, file_name=None):
+        if file_name is None:
+            file_name = "theta_%f_%f_%f__" % (self.gamma, self.alpha, self.epsilon) + time.strftime("%Y_%b_%d_%H_%M_%S")
         with open("theta.save", 'wb') as f:
             pickle.dump(self.theta, f)
         with open(file_name, 'wb') as f:

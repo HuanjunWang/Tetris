@@ -66,7 +66,7 @@ class Shape(object):
         if p_shape is None:
             self.piece_shape = random.choice([self.SquareShape, self.LShape, self.MirroredLShape,
                                               self.TShape, self.LineShape, self.ZShape, self.SShape])
-            self.piece_shape = self.SquareShape
+            self.piece_shape = random.choice([self.SquareShape, self.LineShape])
         else:
             self.piece_shape = p_shape
         self.sub_shape = 0

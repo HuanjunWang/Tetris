@@ -9,7 +9,7 @@ from Shape import Shape
 class Board(object):
     BOARD_WIDTH = Shape.MAX_WIDTH
     BOARD_HEIGHT = 20
-    GAME_OVER_HEIGHT = 16
+    GAME_OVER_HEIGHT = 4
 
     def __init__(self):
         self.with_gui = False
@@ -113,16 +113,19 @@ class Board(object):
             return
         self.cur_shape.rotate_right()
 
-    def new_shape(self):
+    def new_shape(self, shape=None):
         self.cur_y = Board.BOARD_HEIGHT - 1
-        self.cur_shape = Shape()
+        self.cur_shape = Shape(shape)
         return self.cur_shape
 
     def get_reward(self):
-        # print(self.last_bad_pos, self.bad_pos, self.last_var, self.var, self.cur_removed_lines)
-        reward = self.last_bad_pos - self.bad_pos
-        reward += self.last_var - self.var
-        reward += self.one_removed_lines * 4
+        # print(self.last_bad_pos, self.bad_pos, self.last_var, self.var, self.one_removed_lines)
+        reward = (self.last_bad_pos - self.bad_pos)*5
+        # print(reward)
+        reward += self.one_removed_lines * 3
+        # print(reward)
+        # reward += self.last_var - self.var
+        # print(reward)
         return reward
 
     def start_training(self):
@@ -130,6 +133,7 @@ class Board(object):
         player.set_features(Board.BOARD_WIDTH * (Board.GAME_OVER_HEIGHT + 1),
                             [Shape.MAX_SHAPE, max(Shape.SUB), Board.BOARD_WIDTH])
         player.set_debug(player.DEBUG_LEVEL0, True)
+        # player.load_theta('theta.save')
 
         while True:
             self.init()
@@ -144,18 +148,28 @@ class Board(object):
                 if self.debug:
                     self.print_info()
 
+                if self.cur_removed_lines > 1000:
+                    print("theta_%d_%.3f" % (self.cur_removed_lines, self.average))
+                    player.save_theta("theta_%d_%.3f" % (self.max_removed, self.average))
+                    return
+
                 if self.started:
                     player.update(self.get_feature_vector(), self.get_reward(), self.new_shape())
                 else:
-                    player.update(np.zeros(self.BOARD_WIDTH * (self.GAME_OVER_HEIGHT + 1)), -5, new_shape)
+                    pass
+                    player.update(np.zeros(self.BOARD_WIDTH * (self.GAME_OVER_HEIGHT + 1)), -3,
+                                   new_shape)
 
             if self.round % self.INFO_ROUND == 0:
-                self.average = self.total_removed_lines / float(self.round)
-                self.print_info()
+                self.average = self.total_removed_lines / self.INFO_ROUND
+                # self.print_info()
                 print("Round: %-10d" % self.round, "Max:", self.max_removed, "Avg:", self.average)
+                self.total_removed_lines = 0
 
-            if self.round % (self.INFO_ROUND * 100) == 0:
-                player.save_theta()
+                if self.round % (self.INFO_ROUND * 10) == 0:
+                    player.save_theta("theta_%d_%.3f" % (self.max_removed, self.average))
+
+                self.max_removed = 0
 
     @staticmethod
     def get_full_board_m():
@@ -221,7 +235,7 @@ class Board(object):
         for y, x in pos:
             self.set_pos(x, self.cur_y - y - min_distance, n_shape.get_shape())
 
-        #self.remove_full_lines()
+        # self.remove_full_lines()
         to_remove = np.nonzero(np.all(self.board, axis=1))[0]
         self.num_of_full_lines = len(to_remove)
 
@@ -238,7 +252,6 @@ class Board(object):
             self.calculate()
             return True
 
-
     def remove_full_lines(self):
         # to_remove = np.argwhere(np.sum(self.board, axis=1) == Board.BOARD_WIDTH).ravel()
         to_remove = np.nonzero(np.all(self.board, axis=1))[0]
@@ -253,7 +266,7 @@ class Board(object):
         self.board = np.zeros((Board.BOARD_HEIGHT, Board.BOARD_WIDTH), np.int)
         np.copyto(self.board[0:after_remove.shape[0]], after_remove)
 
-        self.board_m = self.BOARD_M_FULL
+        self.board_m = self.BOARD_M_FULL.copy()
         self.board_m[1:] *= (self.board > 0)
 
     def calculate(self):
@@ -286,25 +299,25 @@ if __name__ == '__main__':
     board.start_training()
 
     board.print_info()
-
-    board.set_pos(0, 2, 2)
-    board.set_pos(0, 2, 3)
-    board.set_pos(1, 4, 5)
-    board.set_pos(2, 4, 6)
-    board.set_pos(3, 5, 3)
-    board.set_pos(4, 3, 1)
-    board.set_pos(5, 2, 2)
-    board.set_pos(6, 3, 2)
-    board.set_pos(7, 1, 4)
-    board.set_pos(8, 1, 5)
-    board.set_pos(9, 1, 1)
-    for i in range(10):
-        board.set_pos(i, 0, 1)
-        board.set_pos(i, 4, 4)
-
-    board.print_info()
-    board.remove_full_lines()
-    board.print_info()
+    #
+    # board.set_pos(0, 2, 2)
+    # board.set_pos(0, 2, 3)
+    # board.set_pos(1, 4, 5)
+    # board.set_pos(2, 4, 6)
+    # board.set_pos(3, 5, 3)
+    # board.set_pos(4, 3, 1)
+    # board.set_pos(5, 2, 2)
+    # board.set_pos(6, 3, 2)
+    # board.set_pos(7, 1, 4)
+    # board.set_pos(8, 1, 5)
+    # board.set_pos(9, 1, 1)
+    # for i in range(10):
+    #     board.set_pos(i, 0, 1)
+    #     board.set_pos(i, 4, 4)
+    #
+    # board.print_info()
+    # board.remove_full_lines()
+    # board.print_info()
     # board.started = True
     # for i in range(10):
     #     shape = board.new_shape()
