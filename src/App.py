@@ -65,6 +65,8 @@ class App(QMainWindow):
         self.show_board_msg([(self.FONT_M, 1, 'Press Any Key'), (self.FONT_M, 1, 'To Start')])
         self.show_status_bar_msg('Press T to Training, Press A to show AI')
 
+        self.player = None
+
     def show_board_msg(self, msg):
         self.board_msg = msg
 
@@ -163,10 +165,12 @@ class App(QMainWindow):
 
         self.board.init()
         self.update()
+
         player = QLearnPlayer()
-        player.load_theta('theta.save')
+        player.load_theta('16_theta_14')
         player.set_debug(debug=player.DEBUG_LEVEL3, learn=False)
         self.player = player
+
 
     def replay_next(self):
         # threading.Thread(target=self.replay_thread()).start()
@@ -177,26 +181,24 @@ class App(QMainWindow):
         # self.board.new_shape(self.replay.pop(0).piece_shape)
         self.board.new_shape()
         self.update()
-        time.sleep(0.4)
+        time.sleep(self.speed / 1000.0)
+
         action = self.player.select_action(self.board.get_feature_vector(), self.board.cur_shape)
         self.board.cur_shape.set_sub_shape(action[0])
         self.board.cur_shape.set_x(action[1])
         self.update()
 
-
         if not self.board.add_shape_without_remove():
-            self.game_over()
-            time.sleep(1)
             self.update()
+            self.game_over()
 
         if self.board.num_of_full_lines:
             time.sleep(1)
             self.board.remove_full_lines()
             self.update()
 
-        print(self.board.get_reward())
-
         self.show_status_bar_msg("Score:%d" % self.board.cur_removed_lines)
+        print(self.board.get_reward())
 
     def replay_pre(self):
         pass
@@ -204,7 +206,7 @@ class App(QMainWindow):
     def ai_thread(self):
         self.board.init()
         player = QLearnPlayer()
-        player.load_theta('theta.save')
+        player.load_theta('16_theta_14')
         player.set_debug(debug=player.DEBUG_LEVEL0, learn=False)
 
         while self.running:
@@ -225,6 +227,7 @@ class App(QMainWindow):
             if self.board.num_of_full_lines:
                 time.sleep(float(self.speed) / 1000)
                 self.board.remove_full_lines()
+                self.update()
 
             self.show_status_bar_msg("Score:%d" % self.board.cur_removed_lines)
 
@@ -321,6 +324,8 @@ class App(QMainWindow):
 
         self.show_board_msg([[self.FONT_BIG, 1, 'GAME OVER'],
                              [self.FONT_M, 0, "Score: %d" % self.board.cur_removed_lines]])
+
+        self.board.point_check()
 
         self.show_status_bar_msg("Game Over")
 
