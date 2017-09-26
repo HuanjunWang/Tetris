@@ -16,7 +16,7 @@ class Board(object):
         self.total_removed_lines = 0
         self.average = 0
         self.round = 0
-        self.INFO_ROUND = 100
+        self.INFO_ROUND = 1000
         self.max_removed = 0
         self.debug = False
 
@@ -126,12 +126,13 @@ class Board(object):
 
     def get_reward(self):
         # print(self.last_bad_pos, self.bad_pos, self.last_var, self.var, self.one_removed_lines)
-        reward = (self.last_bad_pos - self.bad_pos) * 5
+        reward = (self.last_bad_pos - self.bad_pos) * 7
         # print(reward)
-        reward += self.one_removed_lines * 3
+        reward += self.one_removed_lines * 4
         # print(reward)
         reward += self.last_var - self.var
         # print(reward)
+        self.one_removed_lines = 0
         return reward
 
     def start_training(self):
@@ -139,7 +140,7 @@ class Board(object):
         player.set_features(Board.BOARD_WIDTH * (Board.GAME_OVER_HEIGHT + 1),
                             [Shape.MAX_SHAPE, max(Shape.SUB), Board.BOARD_WIDTH])
         player.set_debug(player.DEBUG_LEVEL0, True)
-        # player.load_theta('theta.save')
+        player.load_theta('theta_53_15.034')
 
         while True:
             self.init()
@@ -272,6 +273,7 @@ class Board(object):
 
     def remove_full_lines(self):
         # to_remove = np.argwhere(np.sum(self.board, axis=1) == Board.BOARD_WIDTH).ravel()
+
         if self.num_of_full_lines:
             self.calculate()
             self.num_of_full_lines = 0
@@ -296,10 +298,8 @@ class Board(object):
         top = np.argmax(self.board_m, axis=0)
         self.last_bad_pos = self.bad_pos
         self.bad_pos = np.sum(top) - np.sum(self.board > 0)
-
         self.last_var = self.var
         self.var = np.sum(np.abs(top[1:] - top[0:-1]))
-
         return self.bad_pos, self.var
 
     def print_info(self):
@@ -311,8 +311,9 @@ class Board(object):
         # print(board.get_feature_vector().reshape((self.BOARD_WIDTH, self.GAME_OVER_HEIGHT + 1)))
 
         print("Last bad:%d, Bad:%d, Last Var:%d, Var:%d" % (self.last_bad_pos, self.bad_pos, self.last_var, self.var))
-        print("Total Removed Lines:", board.total_removed_lines)
-        print("Current Removed Lines:", board.cur_removed_lines)
+        print("Total Removed Lines:", self.total_removed_lines)
+        print("Current Removed Lines:", self.cur_removed_lines)
+        print("One Removed Lines:", self.one_removed_lines)
         print('#############################')
         print()
 

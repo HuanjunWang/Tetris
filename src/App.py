@@ -198,6 +198,7 @@ class App(QMainWindow):
             self.update()
 
         self.show_status_bar_msg("Score:%d" % self.board.cur_removed_lines)
+        self.board.print_info()
         print(self.board.get_reward())
 
     def replay_pre(self):
